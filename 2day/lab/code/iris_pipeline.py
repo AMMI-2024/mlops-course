@@ -1,3 +1,6 @@
+import mlflow
+import mlflow.sklearn
+from mlflow.models import infer_signature
 from sklearn.datasets import load_iris
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -17,21 +20,33 @@ def train_and_log_model(params):
 
     model = LogisticRegression(**params)
 
-    model.fit(X_train, y_train)
-    # Predict on the test set
-    accuracy = inference(model, X_test, y_test)
+    with mlflow.start_run():
 
-    # TODO: Log the hyperparameters
+        model.fit(X_train, y_train)
+        accuracy = inference(model, X_test, y_test)
 
-    # TODO: Log the loss metric
+        # Log the hyperparameters
+        mlflow.log_params(params)
 
-    # TODO: Set a tag that we can use to remind ourselves what this run was for
+        # Log the loss metric
+        mlflow.log_metric("accuracy", accuracy)
 
-    # TODO: Infer the model signature to be used when saving model
+        # Set a tag that we can use to remind ourselves what this run was for
+        mlflow.set_tag("Training Info", "Basic LR model for iris data")
 
-    # TODO: Save the model, make sure to provide the signature and an input example.
+        # Infer the model signature
+        signature = infer_signature(X_train, model.predict(X_train))
 
-    return model
+        # Log the model
+        model_info = mlflow.sklearn.log_model(
+            sk_model=model,
+            artifact_path="model",
+            signature=signature,
+            input_example=X_train,
+            registered_model_name="tracking-quickstart",
+        )
+
+    return model_info
 
 
 def inference(model, X_test, y_test):
@@ -43,7 +58,11 @@ def inference(model, X_test, y_test):
 
 
 if __name__ == "__main__":
-    # TODO: Set up MLflow.
+    # Set our tracking server uri for logging
+    mlflow.set_tracking_uri(uri="http://127.0.0.1:5000")
+
+    # Create a new MLflow Experiment
+    mlflow.set_experiment("MLflow Quickstart")
 
     # Define the model hyperparameters
     params = {
@@ -52,11 +71,10 @@ if __name__ == "__main__":
         "multi_class": "auto",
         "random_state": 8888,
     }
-    model = train_and_log_model(params)
+    model_info = train_and_log_model(params)
 
     X_train, X_test, y_train, y_test = load_dataset()
 
-    # TODO: Load the model back from MLflow for more predictions
-    # model = ...
-
-    accuracy = inference(model, X_test, y_test)
+    # Load the model back for predictions as a generic Python Function model
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    accuracy = inference(loaded_model, X_test, y_test)

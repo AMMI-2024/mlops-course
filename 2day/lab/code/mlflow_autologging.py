@@ -1,10 +1,16 @@
+import mlflow
 from sklearn.datasets import load_diabetes
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
 
-# TODO: Setup MLflow.
+# Set our tracking server uri for logging
+mlflow.set_tracking_uri(uri="http://127.0.0.1:5000")
 
-# TODO: Setup autologging.
+# Set the experiment name
+mlflow.set_experiment("MLflow Autologging Quickstart")
+
+# Enable autologging
+mlflow.autolog()
 
 db = load_diabetes()
 
