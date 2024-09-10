@@ -24,9 +24,10 @@
       - [Task 2.1: Train and Save Machine Learning Models](#task-21-train-and-save-machine-learning-models)
       - [Task 2.2: Load Models in FastAPI using Lifespan](#task-22-load-models-in-fastapi-using-lifespan)
       - [Task 2.3: Create a GET Endpoint to List Available Models](#task-23-create-a-get-endpoint-to-list-available-models)
+      - [Task 2.4: Use a `.env` file for the location of models](#task-24-use-a-env-file-for-the-location-of-models)
     - [`[BONUS]` Part 3: Building a Simple Prediction API](#bonus-part-3-building-a-simple-prediction-api)
       - [Task 3.1: Set Up a POST Prediction Endpoint](#task-31-set-up-a-post-prediction-endpoint)
-      - [Task 3.2: Adding Asynchronous Predictions](#task-32-adding-asynchronous-predictions)
+      - [Task 3.2: Adding Long Asynchronous Predictions](#task-32-adding-long-asynchronous-predictions)
       - [Task 3.3: Enhanced Schema Validation](#task-33-enhanced-schema-validation)
     - [Part 4: Dockerizing and Deploying FastAPI](#part-4-dockerizing-and-deploying-fastapi)
       - [Task 4.1: Dockerizing the Application](#task-41-dockerizing-the-application)
@@ -202,6 +203,25 @@ In this part, you will train and save two machine learning models and load them 
 
 - Add a new GET endpoint `/models` that returns the names of the loaded models.
 
+#### Task 2.4: Use a `.env` file for the location of models
+
+We will now create a `.env` file where we will store the location (path) to our models.
+
+1. Create a `.env` file and add two lines in it:
+
+   ```
+   LOGISTIC_MODEL={PATH_TO_YOUR_LOGISITC_MODEL}
+   RF_MODEL={PATH_TO_YOUR_RF_MODEL}
+   ```
+
+2. Load the `.env` varibles and access them in code.
+
+   - Install the required package.
+
+   - Load the `.env` variables in code.
+
+   - Access the loaded environemnt variables where needed.
+
 ---
 
 ### `[BONUS]` Part 3: Building a Simple Prediction API
@@ -211,10 +231,10 @@ In this section, you will create a prediction API to serve machine learning mode
 #### Task 3.1: Set Up a POST Prediction Endpoint
 
 - Define a POST endpoint `/predict/{model_name}` that accepts input data in JSON format.
-- Use Pydantic to validate the input data (define a simple schema).
+- Use Pydantic to validate the input data.
 - Make predictions using the loaded ML models based on the input data.
 
-#### Task 3.2: Adding Asynchronous Predictions
+#### Task 3.2: Adding Long Asynchronous Predictions
 
 - Simulate a long-running operation using `await asyncio.sleep()` before returning the prediction.
 - Test the asynchronous behavior by sending multiple requests and ensuring they run concurrently.
