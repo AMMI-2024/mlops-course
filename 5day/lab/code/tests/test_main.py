@@ -30,7 +30,7 @@ def test_list_models():
 def test_predict_valid_model():
     with TestClient(app) as client:
         response = client.post(
-            "/predict/logistic_model",
+            "/predict/rf_model",
             json={
                 "sepal_length": 5.1,
                 "sepal_width": 3.5,
@@ -39,7 +39,7 @@ def test_predict_valid_model():
             },
         )
         assert response.status_code == 200
-        assert response.json() == {"model": "logistic_model", "prediction": 0}
+        assert response.json() == {"model": "rf_model", "prediction": 0}
 
 
 def test_predict_invalid_model():

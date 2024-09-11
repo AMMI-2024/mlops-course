@@ -22,6 +22,9 @@ class IrisData(BaseModel):
 
 
 def load_model(path: str):
+    if not path:
+        return None
+
     model = None
     with open(path, "rb") as f:
         model = pickle.load(f)
