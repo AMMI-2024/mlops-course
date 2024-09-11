@@ -29,6 +29,11 @@
       - [Task 3.1: Setup FastAPI with Prediction Endpoint](#task-31-setup-fastapi-with-prediction-endpoint)
       - [Task 3.2: Adding Asynchronous Predictions](#task-32-adding-asynchronous-predictions)
       - [Task 3.3: Enhanced Schema Validation](#task-33-enhanced-schema-validation)
+    - [Part 4: Dockerizing and Deploying FastAPI](#part-4-dockerizing-and-deploying-fastapi)
+      - [Task 4.1: Dockerizing the Application](#task-41-dockerizing-the-application)
+      - [Task 4.2: Deploy to Cloud (GCP)](#task-42-deploy-to-cloud-gcp)
+  - [Conclusion](#conclusion)
+  - [Useful Links](#useful-links)
 
 ## Overview
 
@@ -495,3 +500,103 @@ class IrisData(BaseModel):
     petal_width: float = Field(..., gt=0, lt=10, description="Petal width must be between 0 and 10", example=0.2)
 
 ```
+
+### Part 4: Dockerizing and Deploying FastAPI
+
+In this part, we will Dockerize the FastAPI application and deploy it to a cloud platform. Make sure you have installed and configured docker on your machine: [tutorial](https://docs.docker.com/get-started/get-docker/).
+
+#### Task 4.1: Dockerizing the Application
+
+0. Make sure to have a **requirements.txt** file:
+
+   ```
+   fastapi~=0.114.0
+   fastapi-cli~=0.0.5
+   uvicorn~=0.30.6
+   scikit-learn~=1.5.1
+   ```
+
+1. **Create a `Dockerfile`** to containerize the FastAPI app:
+
+   ```Dockerfile
+   # Use a python image as the base
+   FROM python:3.9
+
+   # Set the working directory
+   WORKDIR /code
+
+   # Copy the requirements to the working directory
+   COPY ./requirements.txt /code/requirements.txt
+
+   # Install dependencies
+   RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
+
+   # Copy the app directory contents to the working directory
+   COPY ./app /code/app
+
+   # Copy the models into working directory
+   COPY ./models /code/models
+
+   # Run the FastAPI application using Uvicorn
+   CMD ["fastapi", "run", "main.py", "--port", "80"]
+   ```
+
+2. **Build and run the Docker image**:
+
+   ```bash
+
+   # Build the Docker image
+   docker build -t fastapi-ml-api .
+
+   # Run the container and supply the .env file
+   docker run -d -p 8080:8080 --env-file ./.env fastapi-ml-api
+   ```
+
+3. **Test the Dockerized API** by visiting `http://localhost` on your browser or sending requests via Postman.
+
+#### Task 4.2: Deploy to Cloud (GCP)
+
+1. **Google Cloud Platform (GCP) Deployment**:
+   - **Make sure the Image is built for the needed platform**:
+
+     ```bash
+     docker build --platform=linux/amd64 -t fastapi-ml-api .
+     ```
+
+   - **Push Docker Image to Google Container Registry**:
+
+     ```bash
+     gcloud auth configure-docker
+     docker tag fastapi-ml-api gcr.io/[YOUR_PROJECT_ID]/fastapi-ml-api
+     docker push gcr.io/[YOUR_PROJECT_ID]/fastapi-ml-api
+     ```
+
+   - **Deploy to Google Cloud Run**:
+     - Follow the UI
+     - Attach a volume (Google Storage Bucket)
+       - Note: If your google cloud bucket has following structure: `lab4models/models/...`, and you mount the `lab4models` into `/mnt/lab4/` this means that the content of `lab4models` will be placed/mounted inside `/mnt/lab4/`. In other words, in order to access `lab4models/models/...` you would write `/mnt/lab4/models/...`.
+     - Add environment variables
+
+   - Access the deployed application via the URL provided by GCP.
+
+## Conclusion
+
+In this lab, we covered:
+
+- Training and saving machine learning models.
+- Setting up FastAPI to serve multiple models.
+- Demonstrating async behavior in FastAPI for handling multiple requests.
+- Validating input data using Pydantic's schema validation.
+- Adding error handling for invalid requests.
+- Dockerizing the FastAPI application.
+- Deploying the FastAPI app to cloud platforms like GCP or Azure.
+
+This workflow mirrors real-world production-ready ML systems, providing a robust foundation for scalable and maintainable APIs.
+
+## Useful Links
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [Docker Documentation](https://docs.docker.com/)
+- [Uvicorn Documentation](https://www.uvicorn.org/)
+- [Google Cloud Run Documentation](https://cloud.google.com/run/docs)
+- [Azure Container Registry Documentation](https://docs.microsoft.com/en-us/azure/container-registry/)
