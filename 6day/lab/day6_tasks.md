@@ -13,7 +13,7 @@
   - [Lab Instructions](#lab-instructions)
     - [Part 1: Drift Detection with Alibi Detect](#part-1-drift-detection-with-alibi-detect)
     - [Part 2: Monitoring and Reporting with Evidently](#part-2-monitoring-and-reporting-with-evidently)
-    - [Part 3: Building a Monitoring Pipeline in FastAPI](#part-3-building-a-monitoring-pipeline-in-fastapi)
+    - [`BONUS` Part 3: Building a Monitoring Pipeline in FastAPI](#bonus-part-3-building-a-monitoring-pipeline-in-fastapi)
       - [Task 1: Create a Background Task for Logging Requests](#task-1-create-a-background-task-for-logging-requests)
       - [Task 2: Load Original and Production Data](#task-2-load-original-and-production-data)
       - [Task 3: Create a Dashboard with Evidently](#task-3-create-a-dashboard-with-evidently)
@@ -82,7 +82,7 @@ In this part, you will learn how to use `evidently` to create dashboards and rep
 
 ---
 
-### Part 3: Building a Monitoring Pipeline in FastAPI
+### `BONUS` Part 3: Building a Monitoring Pipeline in FastAPI
 
 #### Task 1: Create a Background Task for Logging Requests
 
