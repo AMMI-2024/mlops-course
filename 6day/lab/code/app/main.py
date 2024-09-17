@@ -3,9 +3,14 @@ import pickle
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import pandas as pd
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Path
+from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+from evidently.report import Report
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Path
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
+from sklearn.datasets import load_iris
 
 load_dotenv()
 
@@ -71,6 +76,7 @@ async def list_models():
 async def predict(
     model_name: Annotated[str, Path(pattern=r"^(logistic_model|rf_model)$")],
     iris_data: IrisData,
+    background_tasks: BackgroundTasks,
 ):
     input_data = [
         [
@@ -87,4 +93,65 @@ async def predict(
     model = ml_models[model_name]
     prediction = model.predict(input_data)
 
+    background_tasks.add_task(log_data, input_data[0], int(prediction[0]))
+
     return {"model": model_name, "prediction": int(prediction[0])}
+
+
+### PART 3 solution
+
+# Global variable for storing logs
+DATA_LOG = []
+DATA_WINDOW_SIZE = 45
+
+
+def log_data(iris_data: list, prediction: int):
+    global DATA_LOG
+    iris_data.append(prediction)
+    DATA_LOG.append(iris_data)
+
+
+def load_train_data():
+    iris = load_iris()
+    df = pd.DataFrame(iris.data, columns=iris.feature_names)
+    df["species"] = iris.target
+    return df
+
+
+# loads our latest predictions
+def load_last_predictions():
+    prediction_data = pd.DataFrame(
+        DATA_LOG[-DATA_WINDOW_SIZE:],
+        columns=[
+            "sepal length (cm)",
+            "sepal width (cm)",
+            "petal length (cm)",
+            "petal width (cm)",
+            "species",
+        ],
+    )
+    return prediction_data
+
+
+def generate_dashboard() -> str:
+    data_report = Report(
+        metrics=[
+            DataDriftPreset(),
+            DataQualityPreset(),
+        ],
+    )
+
+    reference_data = load_train_data()
+    current_data = load_last_predictions()
+
+    data_report.run(reference_data=reference_data, current_data=current_data)
+
+    return data_report.get_html()
+
+
+@app.get("/monitoring", tags=["Other"])
+def monitoring():
+    if len(DATA_LOG) == 0:
+        return {"msg": "No data."}
+    dashboard = generate_dashboard()
+    return HTMLResponse(dashboard)
