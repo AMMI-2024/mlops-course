@@ -16,7 +16,7 @@
     - [Task 4: Using XCom for Task Communication](#task-4-using-xcom-for-task-communication)
       - [What is `ti` in Airflow?](#what-is-ti-in-airflow)
   - [Part 2: Fetch, Process, Save](#part-2-fetch-process-save)
-  - [Part 3: GitHub Workflow Integration](#part-3-github-workflow-integration)
+  - [`BONUS` Part 3: GitHub Workflow Integration](#bonus-part-3-github-workflow-integration)
     - [Task 1: GitHub Actions Workflow](#task-1-github-actions-workflow)
     - [Task 2: Generate GitHub Token with Write Permission](#task-2-generate-github-token-with-write-permission)
     - [Task 3: Airflow Task to Trigger GitHub Workflow](#task-3-airflow-task-to-trigger-github-workflow)
@@ -104,7 +104,7 @@ In this part, you'll fetch weather data from an API, process it, save it to a lo
 
 ---
 
-## Part 3: GitHub Workflow Integration
+## `BONUS` Part 3: GitHub Workflow Integration
 
 In this part, you'll write a simple GitHub Actions workflow and trigger it from Airflow.
 
