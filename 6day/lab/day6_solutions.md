@@ -13,7 +13,7 @@
   - [Lab Instructions](#lab-instructions)
     - [Part 1: Drift Detection with Alibi Detect](#part-1-drift-detection-with-alibi-detect)
     - [Part 2: Monitoring and Reporting with Evidently](#part-2-monitoring-and-reporting-with-evidently)
-    - [`BONUS` Part 3: Building a Monitoring Pipeline in FastAPI](#bonus-part-3-building-a-monitoring-pipeline-in-fastapi)
+    - [Part 3: Building a Monitoring Pipeline in FastAPI](#part-3-building-a-monitoring-pipeline-in-fastapi)
       - [Task 1: Create a Background Task for Logging Requests](#task-1-create-a-background-task-for-logging-requests)
       - [Task 2: Load Original and Production Data](#task-2-load-original-and-production-data)
       - [Task 3: Create a Dashboard with Evidently](#task-3-create-a-dashboard-with-evidently)
@@ -69,8 +69,6 @@ In this part, we will use the `alibi-detect` library to monitor data drift in th
 - The notebook includes pre-filled code cells for you to work on drift detection using KS-Drift for numerical data and Chi-Square Drift for categorical data.
 - You will simulate data drift and observe how the drift detection reacts to these changes.
 
----
-
 ### Part 2: Monitoring and Reporting with Evidently
 
 In this part, you will learn how to use `evidently` to create dashboards and reports for monitoring the quality and distribution of data over time.
@@ -82,7 +80,7 @@ In this part, you will learn how to use `evidently` to create dashboards and rep
 
 ---
 
-### `BONUS` Part 3: Building a Monitoring Pipeline in FastAPI
+### Part 3: Building a Monitoring Pipeline in FastAPI
 
 #### Task 1: Create a Background Task for Logging Requests
 
@@ -93,6 +91,47 @@ We will simulate logging input data and predictions to a global variable, mimick
 - Create a function that logs (appends) needed feature/prediction variables to a global variable `DATA_LOG`.
 - Adjust the FastAPI's endpoint `/predict` so that it calls the logging function as `BackgroundTasks`
   
+**Solution:**
+
+```python
+from fastapi import FastAPI, BackgroundTasks
+import pandas as pd
+
+
+# Global variable for storing logs
+DATA_LOG = []
+
+@app.post("/predict/{model_name}")
+async def predict(
+    model_name: Annotated[str, Path(pattern=r"^(logistic_model|rf_model)$")],
+    iris_data: IrisData,
+    background_tasks: BackgroundTasks,
+):
+    input_data = [
+        [
+            iris_data.sepal_length,
+            iris_data.sepal_width,
+            iris_data.petal_length,
+            iris_data.petal_width,
+        ]
+    ]
+
+    if model_name not in ml_models.keys():
+        raise HTTPException(status_code=404, detail="Model not found.")
+
+    model = ml_models[model_name]
+    prediction = model.predict(input_data)
+
+    background_tasks.add_task(log_data, input_data[0], int(prediction[0]))
+
+    return {"model": model_name, "prediction": int(prediction[0])}
+
+def log_data(iris_data: list, prediction: int):
+    global DATA_LOG
+    iris_data.append(prediction)
+    DATA_LOG.append(iris_data)
+```
+
 #### Task 2: Load Original and Production Data
 
 Now, we need to load two datasets the reference dataset (original iris dataset) and the production dataset (the one from logs).
@@ -104,6 +143,35 @@ Now, we need to load two datasets the reference dataset (original iris dataset) 
 - Create a new global variable `WINDOW_SIZE`.
 - Adjust last function so that you can load last `WINDOW_SIZE` records from the data log.
 
+**Solutions:**
+
+```python
+from sklearn.datasets import load_iris
+
+DATA_WINDOW_SIZE = 45
+
+def load_train_data():
+    iris = load_iris()
+    df = pd.DataFrame(iris.data, columns=iris.feature_names)
+    df["species"] = iris.target
+    return df
+
+
+# loads our latest predictions
+def load_last_predictions():
+    prediction_data = pd.DataFrame(
+        DATA_LOG[-DATA_WINDOW_SIZE:],
+        columns=[
+            "sepal length (cm)",
+            "sepal width (cm)",
+            "petal length (cm)",
+            "petal width (cm)",
+            "species",
+        ],
+    )
+    return prediction_data
+```
+
 #### Task 3: Create a Dashboard with Evidently
 
 We will now create a function that compares the original dataset with the production data (last `WINDOW_SIZE` requests) and generates a drift detection report.
@@ -113,6 +181,31 @@ We will now create a function that compares the original dataset with the produc
 - Use Evidently to build a preset dashboard that compares the reference and production datasets (make sure to load the data with functions from part 2).
 - This dashboard should include drift detection reports like DataDriftPreset and DataQualityPreset.
 
+**Solutions:**
+
+```python
+from evidently.report import Report
+
+from evidently.metric_preset import DataQualityPreset
+from evidently.metric_preset import DataDriftPreset
+
+
+def generate_dashboard() -> str:
+    data_report = Report(
+        metrics=[
+            DataDriftPreset(),
+            DataQualityPreset(),
+        ],
+    )
+
+    reference_data = load_train_data()
+    current_data = load_last_predictions()
+
+    data_report.run(reference_data=reference_data, current_data=current_data)
+
+    return data_report.get_html()
+```
+
 #### Task 4: Create a Monitoring Endpoint
 
 Finally, create an endpoint `/monitoring` that triggers the drift detection report and returns an HTML report showing the comparison between the original and production datasets.
@@ -121,6 +214,19 @@ Finally, create an endpoint `/monitoring` that triggers the drift detection repo
 
 - Write a `/monitoring` endpoint that generates the Evidently report.
 - Serve the report as an HTML file.
+
+**Solution:**
+
+```python
+from fastapi.responses import HTMLResponse
+
+@app.get("/monitoring", tags=["Other"])
+def monitoring():
+    if len(DATA_LOG) == 0:
+        return {"msg": "No data."}
+    dashboard = generate_dashboard()
+    return HTMLResponse(dashboard)
+```
 
 ## Conclusion
 
