@@ -91,12 +91,12 @@ In Airflow, `ti` stands for **TaskInstance**. It is an object that represents a 
 In this part, you'll fetch weather data from an API, process it, save it to a local file.
 
 1. **Fetch Weather Data**:
-   - Create an account on [OpenWeather API](https://openweathermap.org/api) and get your API key.
-   - Create a task that fetches weather data for a specific city (e.g., London) using the OpenWeather API.
+   - Create an account on [Visual Crossing](https://www.visualcrossing.com/) and get your API key.
+   - Create an Airflow task that fetches weather data for a specific city (e.g., London) using the Visual Crossing API.
    - Save the fetched temperature data into XCom.
 
 2. **Process Data**:
-   - Create a new task that pulls the temperature data from XCom and converts it from Kelvin to Celsius.
+   - Create a new task that pulls the temperature data from XCom and converts it to any other temperature unit (i.e., Kelvin, Fahrenheit).
    - Save the converted temperature back into XCom.
 
 3. **Save Data to File or Cloud**:
@@ -134,5 +134,5 @@ In this part, you'll write a simple GitHub Actions workflow and trigger it from 
 
 - [Airflow Documentation](https://airflow.apache.org/docs/apache-airflow/stable/index.html)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
-- [OpenWeatherMap API](https://openweathermap.org/api)
+- [VisualCrossing API](https://www.visualcrossing.com/weather-api)
 - [Crontab Guru](https://crontab.guru/)
