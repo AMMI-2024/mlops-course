@@ -18,7 +18,6 @@
     - [Task 1: Create a Top Secret Endpoint](#task-1-create-a-top-secret-endpoint)
   - [Part 3: OAuth2 with Password and Bearer Token Authentication](#part-3-oauth2-with-password-and-bearer-token-authentication)
     - [Introduction](#introduction)
-    - [Why are we Moving from HTTP Basic to OAuth2?](#why-are-we-moving-from-http-basic-to-oauth2)
     - [Flow of OAuth2 Password Authentication](#flow-of-oauth2-password-authentication)
     - [Client Credentials (Not Needed in Password Flow)](#client-credentials-not-needed-in-password-flow)
     - [Task 1: OAuth2 Setup: Implementing Username and Password Authentication](#task-1-oauth2-setup-implementing-username-and-password-authentication)
@@ -125,6 +124,18 @@ A JWT consists of three parts:
 - Create a **FastAPI** project and expose a simple `/predict` endpoint that returns some text.
 - No authentication yet; just focus on ensuring that the API can take input and return output.
 
+**Solution**:
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.post("/predict")
+def predict(data: dict):
+    return {"prediction": "Sample prediction"}
+```
+
 ### Task 2: Add Basic Authentication to the Prediction Endpoint
 
 Objective: Secure the `/predict` endpoint using HTTP Basic Authentication.
@@ -137,6 +148,38 @@ Objective: Secure the `/predict` endpoint using HTTP Basic Authentication.
 - Only authenticated users should be able to access the `/predict` endpoint.
 - Check your endpoint both in UI and with curl. When using curl checkout the `-u username:password` flag.
   
+**Solution:**
+
+```python
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+def hash_password(password):
+    return "hashed" + password
+
+# Basic username/password database
+users_db = {
+    "user": {"username": "user", "password": hash_password("userpass"), "role": "user"},
+}
+
+app = FastAPI()
+security = HTTPBasic()
+
+def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)):
+    user = users_db.get(credentials.username)
+    if not user or user["password"] !=  hash_password(credentials.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return {"username": credentials.username}
+
+@app.post("/predict")
+def predict(data: dict, credentials: HTTPBasicCredentials = Depends(authenticate_user)):
+    return {"prediction": "Sample prediction"}
+```
+
 ## Part 2: Introduce Role-Based Access
 
 ### Task 1: Create a Top Secret Endpoint
@@ -150,17 +193,52 @@ Objective: Add a new endpoint, `/secret`, which should only be accessible by adm
 - Users with the `user` role should not have access to this endpoint.
 - Both `user` and `admin` should have access to prediction.
 
+**Solution:**
+
+```python
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
+def hash_password(password):
+    return "hashed" + password
+
+# Basic username/password database
+users_db = {
+    "user": {"username": "user", "password": hash_password("userpass"), "role": "user"},
+    "admin": {"username": "admin", "password": hash_password("adminpass"), "role": "admin"},
+}
+
+app = FastAPI()
+security = HTTPBasic()
+
+def authenticate_user(credentials: HTTPBasicCredentials = Depends(security)):
+    user = users_db.get(credentials.username)
+    if not user or user["password"] != hash_password(credentials.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return {"username": credentials.username, "role": user['role']}
+
+@app.post("/predict")
+def predict(data: dict, credentials: HTTPBasicCredentials = Depends(authenticate_user)):
+    return {"prediction": "Sample prediction"}
+
+@app.get("/secret")
+def secret_endpoint(credentials: HTTPBasicCredentials = Depends(authenticate_user)):
+    if credentials["role"] != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return {"message": "Admin Only: This is the secret data!"}
+```
+
 ## Part 3: OAuth2 with Password and Bearer Token Authentication
 
 ### Introduction
 
-In this part of the lab, we will upgrade the previous HTTP Basic authentication to use OAuth2 with password-based authentication. This is a more secure and flexible approach compared to the previous method.
+In this part of the lab, we will focus on OAuth2 with password-based authentication.
 
-With OAuth2 and the "password flow," users will log in using their username and password. The server will verify the credentials and return a token, which the client can use to access secured resources. This token acts as proof that the user has been authenticated and is allowed to access the endpoints.
-
-### Why are we Moving from HTTP Basic to OAuth2?
-
-HTTP Basic Authentication sends the username and password with each request, making it less secure. OAuth2 improves security by using a token-based system, where credentials are exchanged for a token. This token is then used in subsequent requests, limiting the exposure of sensitive data.
+With OAuth2 and the "password flow," users will log in using their username and password. The server will verify the credentials and return a token, which the client can use to access secured resources. This token acts as proof that the user has been authenticated and is allowed to access the endpoints
 
 By upgrading to OAuth2:
 
@@ -170,9 +248,9 @@ By upgrading to OAuth2:
 
 ### Flow of OAuth2 Password Authentication
 
-- **Login (Authorize)**: The client (user) sends their username and password to a specific /token endpoint. The server verifies the credentials.
+- **Login (Authorize)**: The client (user) sends their username and password to a specific `/token` endpoint. The server verifies the credentials.
 - **Token Generation**: If the credentials are correct, the server generates a Bearer Token (an access token), which is sent back to the client.
-- **Token Storage**: The client stores this token (in memory, local storage, etc.).
+- **Token Storage**: The client stores this token.
 - **Authenticated Requests**: For subsequent requests, the client includes this token in the Authorization header of the request. This proves that the user has already authenticated.
 
 ### Client Credentials (Not Needed in Password Flow)
@@ -192,8 +270,54 @@ Let’s walk through the steps of upgrading our authentication to use OAuth2 wit
     - Verify the credentials.
     - Return an access token if the credentials are valid. For now, for the access token you can just return the username.
 - Step 2: Securing the `/predict` Endpoint with the Bearer Token
-  - Now that we have a way to log in and get a token, we can secure our existing `/predict` endpoint so that it only accepts requests with a valid token.
+  - Now that we have a way to log in and get a token, we can secure our existing `/predict` endpoint so that it only accepts requests with a valid token. The real verification will be done in the next part. This part is just a basic setup.
 - Step 3: Access the `/predict` Endpoint with curl.
+
+**Solutions**:
+
+```python
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+def hash_password(password):
+    return "hashed" + password
+
+# Basic username/password database
+users_db = {
+    "user": {"username": "user", "password": hash_password("userpass"), "role": "user"},
+    "admin": {"username": "admin", "password": hash_password("adminpass"), "role": "admin"},
+}
+
+app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# Token generation endpoint
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = users_db.get(form_data.username)
+    if not user or user["password"] != hash_password(form_data.password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    # In a real application, you would generate a proper JWT or token here
+    return {"access_token": user["username"], "token_type": "bearer"}
+
+@app.post("/predict")
+async def predict(data: dict, token: str = Depends(oauth2_scheme)):
+    # TODO: verify (decode) the token --> to be done in part4
+    return {"prediction": "Sample prediction", "token": token}
+```
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/predict' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer admin' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
 
 ## `BONUS` Part 4: OAuth2 with JWT Tokens
 
@@ -240,13 +364,114 @@ We will modify our authentication system to issue and verify JWT tokens. Let's w
 - Step 1: Install the Required Libraries
 You will need the `pyjwt` and `passlib` libraries for working with JWT tokens and hashing passwords.
 
-```bash
+```
 pip install pyjwt passlib[bcrypt]
 ```
 
 - Step 2: Update the `/token` Endpoint to Issue JWT Tokens. Feel free to use `CryptContext` from `passlib` to generate real (password) hashes.
+  - You can set the `exp` field in payload to have automatic expiration checks during decode phase.
 - Step 3: Update the `/predict` Endpoint to Use JWT Tokens (i.e., decode and verify). The client must send the token in the Authorization header. Additionally, when returning the prediction also return the username of the logged in user (decoded from the token).
+  - Make sure to decode the token.
+  - Verify if the information inside of it is correct, i.e. allows the user to access content.
 - Step 4: Test out the `/token` Endpoint and initiate requests from UI and curl.
+
+**Solution:**
+
+```python
+from datetime import datetime, timedelta, timezone
+from typing import Union
+from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from passlib.context import CryptContext
+import jwt
+from jwt import PyJWTError
+
+# JWT settings
+SECRET_KEY = "your_secret_key"  # Replace with your own secret key
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Password hashing context
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# User database
+users_db = {
+    "admin": {"username": "admin", "password": pwd_context.hash("adminpass"), "role": "admin"},
+    "user": {"username": "user", "password": pwd_context.hash("userpass"), "role": "user"},
+}
+
+
+# Helper functions
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def authenticate_user(username: str, password: str):
+    user = users_db.get(username)
+    if not user or not verify_password(password, user["password"]):
+        return False
+    return user
+
+
+def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+def decode_token(token: str):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+            )
+        return username
+    except PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
+
+@app.post("/predict")
+async def predict(data: dict, token: str = Depends(oauth2_scheme)):
+    username = decode_token(token)
+    # TODO: Do something with the informatino from decoded token.
+    return {"prediction": "Sample prediction", "user": username}
+```
+
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/predict' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyIiwiZXhwIjoxNzI2NTcyNjY3fQ.3Fpj72ohhs7F0m3xhk4m_mhO6vwNFQ9vjlw64iFZ2tA' \
+  -H 'Content-Type: application/json' \
+  -d '{}'
+```
 
 ### Task 2: Securing the Admin-Only `/secret` Endpoint
 
@@ -259,10 +484,52 @@ Instructions:
 
 - Step 1: Modify the `create_access_token` function to include the user's role in the JWT token. When calling this function, we’ll pass the user’s role along with the username.
 
+```python
+def create_access_token(data: dict, role: str, expires_delta: Union[timedelta, None] = None):
+    to_encode = data.copy()
+    to_encode.update({"role": role})  # Add role to the payload
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+```
+
 - Step 2: Update the `/token` endpoint to include the user’s role in the token.
 Now, each generated token will contain both the username (sub) and the role (role).
 
+```python
+@app.post("/token")
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    user = authenticate_user(form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, role=user["role"], expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+```
+
 - Step 3: Secure the `/secret` Endpoint for Admin Access. First, we’ll decode the token and extract the role. Then, we’ll verify whether the role is "admin" before allowing access to the endpoint.
+
+```python
+@app.get("/secret")
+async def secret_endpoint(token: str = Depends(oauth2_scheme)):
+    payload = decode_token(token)
+    role = payload.get("role")
+    if role != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
+    return {"message": "Admin Only: This is the secret data!"}
+```
+
+**NOTE:** A key concept to note is the `secret-key` during the encode and decode phase. Because this information is private, only our server can generate and decode such tokens.
 
 ## Conclusion
 
